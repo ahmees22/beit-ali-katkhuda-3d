@@ -1,0 +1,231 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beit Ali Katkhuda 3D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working viewer - model canvas fills the main column, an RTL control rail on the right (stacks under the canvas on phones). */
+:root {
+  --bg: #ECEFEB; --panel: #FFFFFF; --ink: #1C2622; --muted: #5A6A64; --line: #D3DAD6;
+  --accent: #0D7A84; --accent-ink: #FFFFFF; --stone: #C9BFA8; --scene: #E3E7E2;
+  --f-body: "IBM Plex Sans Arabic", "Noto Sans Arabic", Tahoma, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111715; --panel: #18201E; --ink: #E3EBE7; --muted: #92A29C; --line: #2B3633;
+  --accent: #3DB6C0; --accent-ink: #0B1413; --stone: #6E6656; --scene: #151C1A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111715; --panel: #18201E; --ink: #E3EBE7; --muted: #92A29C; --line: #2B3633;
+  --accent: #3DB6C0; --accent-ink: #0B1413; --stone: #6E6656; --scene: #151C1A; color-scheme: dark; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); direction: rtl;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; box-sizing: border-box; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-bottom: 10px; }
+h1 { font-size: 1.15rem; margin: 0; font-weight: 700; text-wrap: balance; }
+h1 small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; }
+.tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.tabs button { font: inherit; font-size: .85rem; border: 0; background: transparent; color: var(--ink); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.tabs button:focus-visible, .rail button:focus-visible, .rail input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; height: calc(100% - 64px); min-height: 520px; }
+.stage { position: relative; min-width: 0; background: var(--scene); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.status { position: absolute; inset: auto 12px 12px auto; font-size: .78rem; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.facts { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 70%; direction: rtl; }
+.fact { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: .75rem; }
+.fact b { font-family: var(--f-mono); font-weight: 500; color: var(--accent); margin-inline-start: 4px; font-variant-numeric: tabular-nums; }
+.rail { min-width: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.box h2 { font-size: .8rem; letter-spacing: .02em; color: var(--muted); margin: 0 0 8px; font-weight: 500; }
+.row { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+.row + .row { margin-top: 6px; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row output { font-family: var(--f-mono); font-size: .75rem; min-width: 4.2em; text-align: left; direction: ltr; font-variant-numeric: tabular-nums; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: inherit; font-size: .8rem; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.parts { overflow-y: auto; flex: 1; min-height: 120px; }
+.part { display: grid; grid-template-columns: 16px 12px minmax(0, 1fr); gap: 8px; align-items: center; font-size: .78rem; padding: 3px 0; direction: ltr; text-align: left; cursor: pointer; }
+.part span.sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); }
+.part label { cursor: pointer; overflow-wrap: anywhere; }
+.note { font-size: .74rem; color: var(--muted); margin: 0; line-height: 1.6; }
+@media (max-width: 760px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .stage { height: 62vh; min-height: 360px; }
+  .parts { max-height: 260px; }
+  .facts { max-width: 92%; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<header>
+  <h1>بيت علي كتخدا: النموذج ثلاثي الأبعاد<small>نظام خفض المياه الجوفية وجهاز الاختبار المعملي - إحداثيات الرفع المساحي، الأبعاد بالمتر</small></h1>
+  <nav class="tabs" role="tablist" aria-label="النماذج">
+    <button role="tab" id="tab-site" data-model="site" aria-selected="true">الموقع</button>
+    <button role="tab" id="tab-wellpoint" data-model="wellpoint" aria-selected="false">تفصيلة البئر</button>
+    <button role="tab" id="tab-lab" data-model="lab" aria-selected="false">جهاز المعمل</button>
+    <button role="tab" id="tab-panel" data-model="panel" aria-selected="false">لوحة التحكم</button>
+  </nav>
+</header>
+<div class="wrap">
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="عرض ثلاثي الأبعاد للنموذج"></canvas>
+    <div class="facts" id="facts"></div>
+    <div class="status" id="status">جارٍ تحميل النموذج…</div>
+  </div>
+  <aside class="rail">
+    <div class="box">
+      <h2>القطع والعرض</h2>
+      <div class="row"><label for="cutY">قطع أفقي</label><input type="range" id="cutY" min="0" max="1000" value="1000"><output id="cutYv">—</output></div>
+      <div class="row"><label for="cutX">قطع رأسي</label><input type="range" id="cutX" min="0" max="1000" value="1000"><output id="cutXv">—</output></div>
+      <div class="row"><label for="soil">شفافية التربة</label><input type="range" id="soil" min="0" max="100" value="25"><output id="soilv">25%</output></div>
+      <div class="btns" style="margin-top:8px">
+        <button id="v3d">منظور</button><button id="vtop">من أعلى</button><button id="vside">جانبي</button><button id="vall">إظهار الكل</button>
+      </div>
+    </div>
+    <div class="box parts" id="parts"><h2>مكونات النموذج</h2><div id="plist"></div></div>
+    <p class="note" id="note"></p>
+  </aside>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script src="lib/models_data.js"></script>
+<script>
+const MODELS = {
+  site: { file: "BAK_Site_Model.glb", note: "الحوائط من لوحة الرفع، والخوازيق من طبقة PILES (قاعها تقريبي)، وطبقات التربة لحالة اللوج B: ردم حتى +47.11، طين حتى +39.11، رمل أسفلها. ارتفاع الحوائط معروض 5 م للتوضيح.",
+          facts: [["آبار الترشيح", "50"], ["طول الحلقة", "86.9 m"], ["الخفض المرحلة 1", "0.25 m"], ["منسوب المياه", "+49.29"]] },
+  wellpoint: { file: "BAK_Wellpoint_Detail.glb", note: "البئر كما في اللوحة DW-02: حفرة 250 مم، فلتر F1 بسمك 25 مم، جيوتكستايل على غلاف 200 مم مثقب 10 مم كل 50 مم، فلتر داخل الغلاف، وماسورة داخلية DN32 بشقوق 1 مم. التربة مقطوعة ربعًا لرؤية الطبقات.",
+          facts: [["قاع البئر", "+47.61"], ["فوق الطين", "0.50 m"], ["حد المانومتر", "3.27 cm"], ["الشق", "1.0 mm"]] },
+  lab: { file: "BAK_Lab_Rig.glb", note: "جهاز الاختبار المعملي (اللوحة BAK-DW-09): نصف أسطوانة نصف قطرها 0.60 م، ونافذة أكريليك 40 مم بإطار صلب مقفول (حسب تحليل الأحمال TR-03)، والبئر بمقاسه الحقيقي، وغشاء ضغط فوق التربة، وخط المخرج إلى مقياس العكارة ومصيدة الرواسب والميزان.",
+          facts: [["نصف القطر", "0.60 m"], ["التربة", "0.60 m"], ["ضغط الغشاء", "21–34 kPa"], ["المقياس", "1:1"]] },
+  panel: { file: "BAK_CP01_PLC_Panel.glb", note: "لوحة التحكم CP-01 (اللوحة BAK-DW-13): صندوق 800 × 600 × 250 مم IP65 والباب مفتوح. الصف العلوي: مصدر 24 فولت، وPLC طراز Siemens S7-1200 (CPU 1214C)، ووحدتا مداخل تناظرية SM 1231، وأطراف حماية الإشارات من الصواعق. بعدها: المفتاح الرئيسي وقاطع التسريب والقواطع، ثم قواطع حماية المحركات والكونتاكتورات، ثم صف الأطراف. على الباب: شاشة KTP700 ومفتاح أوتوماتيك/يدوي وزر الإعادة واللمبات وزر الطوارئ، والكشاف فوق اللوحة.",
+          facts: [["المتحكم", "S7-1200"], ["مداخل تناظرية", "16"], ["مداخل رقمية", "8"], ["المقاس", "800×600×250"]] },
+};
+const $ = (id) => document.getElementById(id);
+const canvas = $("c"), stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.localClippingEnabled = true;
+renderer.outputEncoding = THREE.sRGBEncoding;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 2000);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6250, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(30, 60, 20); scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-40, 20, -30); scene.add(fill);
+const planeY = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
+const planeX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
+const loader = new THREE.GLTFLoader();
+function loadGLB(file, ok, prog, err) {
+  const b64 = window.GLB_DATA && window.GLB_DATA[file];
+  if (!b64) return loader.load(file, ok, prog, err);
+  const bin = atob(b64), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  loader.parse(buf.buffer, "", ok, err);
+}
+const cache = {};
+let current = null, box = null, soilMats = [];
+
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function applyTheme() { scene.background = new THREE.Color(cssVar("--scene") || "#E3E7E2"); }
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener && mq.addEventListener("change", applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / Math.max(h, 1); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+function prepare(root) {
+  const parts = [];
+  root.traverse((o) => {
+    if (o.isMesh) {
+      const m = o.material.clone();
+      const a = m.opacity !== undefined ? m.opacity : 1;
+      m.metalness = 0.05; m.roughness = 0.75; m.side = THREE.DoubleSide;
+      m.clippingPlanes = [planeY, planeX];
+      const nm = (o.name || "") + " " + (o.parent ? o.parent.name : "");
+      if (m.transparent || a < 0.99 || /soil|fill|clay|sand|water|acrylic|reservoir/i.test(nm)) {
+        m.transparent = true; m.depthWrite = false;
+        if (/soil|fill \(|clay|sand/i.test(nm)) soilMats.push(m);
+      }
+      o.material = m;
+    }
+  });
+  const top = root.children.length === 1 && root.children[0].children.length ? root.children[0] : root;
+  top.children.forEach((c) => { let col = null; c.traverse((o) => { if (!col && o.isMesh) col = o.material.color; }); parts.push({ obj: c, name: (c.name || "part").replace(/_/g, " "), color: col }); });
+  return parts;
+}
+
+function setSoil(v) { soilMats.forEach((m) => { m.opacity = v / 100; m.visible = v > 0; }); $("soilv").textContent = v + "%"; }
+
+function frame(view) {
+  if (!box) return;
+  const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()), r = Math.max(s.x, s.y, s.z);
+  controls.target.copy(c);
+  if (view === "top") camera.position.set(c.x, c.y + r * 1.6, c.z + 0.001);
+  else if (view === "side") camera.position.set(c.x, c.y + r * 0.1, c.z + r * 1.6);
+  else camera.position.set(c.x + r * 0.9, c.y + r * 0.75, c.z + r * 1.1);
+  camera.near = r / 500; camera.far = r * 20; camera.updateProjectionMatrix(); controls.update();
+}
+
+function updateCuts() {
+  if (!box) return;
+  const fy = $("cutY").value / 1000, fx = $("cutX").value / 1000;
+  const y = box.min.y + fy * (box.max.y - box.min.y) + (fy >= 1 ? 1e5 : 0);
+  const x = box.min.x + fx * (box.max.x - box.min.x) + (fx >= 1 ? 1e5 : 0);
+  planeY.constant = y; planeX.constant = x;
+  $("cutYv").textContent = fy >= 1 ? "بدون" : (y + "").slice(0, 6) + " m";
+  $("cutXv").textContent = fx >= 1 ? "بدون" : (x + "").slice(0, 6) + " m";
+}
+
+function listParts(parts) {
+  const el = $("plist"); el.textContent = "";
+  parts.forEach((p, i) => {
+    const row = document.createElement("div"); row.className = "part";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = true; cb.id = "p" + i;
+    cb.addEventListener("change", () => { p.obj.visible = cb.checked; });
+    const sw = document.createElement("span"); sw.className = "sw";
+    if (p.color) sw.style.background = "#" + p.color.getHexString();
+    const lb = document.createElement("label"); lb.htmlFor = cb.id; lb.textContent = p.name;
+    row.append(cb, sw, lb); el.appendChild(row);
+  });
+}
+
+function show(key) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.model === key)));
+  const M = MODELS[key];
+  $("note").textContent = M.note;
+  $("facts").innerHTML = M.facts.map(([k, v]) => `<span class="fact">${k}<b>${v}</b></span>`).join("");
+  if (current) scene.remove(current.root);
+  $("cutY").value = 1000; $("cutX").value = 1000;
+  const done = (entry) => {
+    current = entry; scene.add(entry.root); soilMats = entry.soil;
+    box = new THREE.Box3().setFromObject(entry.root);
+    listParts(entry.parts); setSoil(+$("soil").value); updateCuts(); frame("3d");
+    $("status").textContent = entry.parts.length + " مكوّن";
+  };
+  if (cache[key]) return done(cache[key]);
+  $("status").textContent = "جارٍ تحميل النموذج…";
+  loadGLB(M.file, (g) => {
+    soilMats = [];
+    const parts = prepare(g.scene);
+    cache[key] = { root: g.scene, parts, soil: soilMats.slice() };
+    done(cache[key]);
+  }, undefined, () => { $("status").textContent = "تعذّر تحميل ملف النموذج " + M.file; });
+}
+
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { location.hash = b.dataset.model; }));
+window.addEventListener("hashchange", () => show(MODELS[location.hash.slice(1)] ? location.hash.slice(1) : "site"));
+$("cutY").addEventListener("input", updateCuts); $("cutX").addEventListener("input", updateCuts);
+$("soil").addEventListener("input", (e) => setSoil(+e.target.value));
+$("v3d").onclick = () => frame("3d"); $("vtop").onclick = () => frame("top"); $("vside").onclick = () => frame("side");
+$("vall").onclick = () => { if (current) current.parts.forEach((p, i) => { p.obj.visible = true; const cb = $("p" + i); if (cb) cb.checked = true; }); };
+applyTheme(); resize();
+show(MODELS[location.hash.slice(1)] ? location.hash.slice(1) : "site");
+(function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+</script>
